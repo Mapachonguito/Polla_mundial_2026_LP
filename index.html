@@ -137,12 +137,12 @@
       console.log(`💾 autosavePred - matchid: ${mid}, h: ${h}, a: ${a}, user: ${state.me}`);
       
       // Limpiar valores: "00" → "0", "01" → "1", etc.
-      if(h) h = String(parseInt(h));
-      if(a) a = String(parseInt(a));
+      if(h !== undefined && h !== '') h = String(parseInt(h));
+      if(a !== undefined && a !== '') a = String(parseInt(a));
       
       // Actualizar display para que se vea limpio
-      if(h) document.getElementById(`h_${mid}`).value = h;
-      if(a) document.getElementById(`a_${mid}`).value = a;
+      if(h !== undefined && h !== '') document.getElementById(`h_${mid}`).value = h;
+      if(a !== undefined && a !== '') document.getElementById(`a_${mid}`).value = a;
       
       // Si son negativos, dejar vacío
       if(h && parseInt(h) < 0) { 
@@ -259,19 +259,19 @@
       console.log('Valores leídos - home:', homeVal, 'away:', awayVal);
       
       // Limpiar valores: "00" → "0", "01" → "1", etc.
-      if(homeVal) homeVal = String(parseInt(homeVal));
-      if(awayVal) awayVal = String(parseInt(awayVal));
+      if(homeVal !== undefined && homeVal !== '') homeVal = String(parseInt(homeVal));
+      if(awayVal !== undefined && awayVal !== '') awayVal = String(parseInt(awayVal));
       
       // Actualizar display para que se vea limpio
-      if(homeVal) document.getElementById('res_h_' + mid).value = homeVal;
-      if(awayVal) document.getElementById('res_a_' + mid).value = awayVal;
+      if(homeVal !== undefined && homeVal !== '') document.getElementById('res_h_' + mid).value = homeVal;
+      if(awayVal !== undefined && awayVal !== '') document.getElementById('res_a_' + mid).value = awayVal;
       
       // Si son negativos, dejar vacío
-      if(homeVal && parseInt(homeVal) < 0) { 
+      if(homeVal !== undefined && homeVal !== '' && parseInt(homeVal) < 0) { 
         homeVal = '';
         document.getElementById('res_h_' + mid).value = '';
       }
-      if(awayVal && parseInt(awayVal) < 0) { 
+      if(awayVal !== undefined && awayVal !== '' && parseInt(awayVal) < 0) { 
         awayVal = '';
         document.getElementById('res_a_' + mid).value = '';
       }
@@ -577,7 +577,7 @@
       open.forEach(m => {
         const h = document.getElementById(`h_${m.id}`)?.value;
         const a = document.getElementById(`a_${m.id}`)?.value;
-        if(h || a) {
+        if((h !== undefined && h !== '') || (a !== undefined && a !== '')) {
           state.pendingSaves[m.id] = { home: h || '', away: a || '' };
         }
       });
