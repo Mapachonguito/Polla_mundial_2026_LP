@@ -366,7 +366,7 @@
       try {
         let cfg = { data: [] }, u = { data: [] }, m = { data: [] }, p = { data: [] };
         
-        try { cfg = await sb.from('polla_trabajo_config').select('id, poolname, scoring, podiumresult, monto_entrada, moneda, prizes').limit(1); } catch(e) { console.error('Error config:', e); }
+        try { cfg = await sb.from('polla_trabajo_config').select('*').limit(1); } catch(e) { console.error('Error config:', e); }
         try { u = await sb.from('polla_trabajo_users').select('id, displayname, pw, role, paid'); } catch(e) { console.error('Error users:', e); }
         try { m = await sb.from('polla_trabajo_matches').select('*').order('datetime', { ascending: true }); } catch(e) { console.error('Error matches:', e); }
         try { p = await sb.from('polla_trabajo_predictions').select('*'); } catch(e) { console.error('Error predictions:', e); }
