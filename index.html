@@ -167,7 +167,7 @@
           console.log('Existe:', exist.data?.length);
           if(exist.data?.length) {
             console.log('Actualizando...');
-            const updateResult = await sb.from('polla_trabajo_predictions').update({homescore: +h, awayscore: +a}).eq('userid', state.me).eq('matchid', mid);
+            const updateResult = await sb.from('polla_trabajo_predictions').update({homescore: h !== undefined && h !== '' ? +h : null, awayscore: a !== undefined && a !== '' ? +a : null}).eq('userid', state.me).eq('matchid', mid);
             console.log('Update result:', updateResult);
           } else {
             console.log('Insertando...');
@@ -253,8 +253,8 @@
       const m = state.matches.find(x => x.id === mid);
       if(!m) return console.error('Match no encontrado:', mid);
       
-      let homeVal = document.getElementById('res_h_' + mid)?.value || '';
-      let awayVal = document.getElementById('res_a_' + mid)?.value || '';
+      let homeVal = document.getElementById('res_h_' + mid)?.value ?? '';
+      let awayVal = document.getElementById('res_a_' + mid)?.value ?? '';
       
       console.log('Valores leídos - home:', homeVal, 'away:', awayVal);
       
@@ -560,7 +560,7 @@
       filtered.forEach(m => {
         const p = state.preds[state.me + '::' + m.id] || state.pendingSaves[m.id] || {};
         const locked = isLocked(m);
-        html += `<div class="match ${locked?'':''}"><div class="match-header">${m.home} vs ${m.away} <span style="color:var(--muted);">Grupo ${m.group_name}</span></div><div class="match-date">📅 ${fmtDate(m.datetime)}</div><div class="match-inputs" ${locked?'style="opacity:0.5;"':''}><input type="number" id="h_${m.id}" value="${p.home||''}" min="0" max="99" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}><span>:</span><input type="number" id="a_${m.id}" value="${p.away||''}" min="0" max="99" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}></div></div>`;
+        html += `<div class="match ${locked?'':''}"><div class="match-header">${m.home} vs ${m.away} <span style="color:var(--muted);">Grupo ${m.group_name}</span></div><div class="match-date">📅 ${fmtDate(m.datetime)}</div><div class="match-inputs" ${locked?'style="opacity:0.5;"':''}><input type="number" id="h_${m.id}" value="${p.home !== undefined && p.home !== null ? p.home : ''}" min="0" max="99" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}><span>:</span><input type="number" id="a_${m.id}" value="${p.away !== undefined && p.away !== null ? p.away : ''}" min="0" max="99" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}></div></div>`;
       });
       
       el.innerHTML = html;
@@ -578,7 +578,7 @@
         const h = document.getElementById(`h_${m.id}`)?.value;
         const a = document.getElementById(`a_${m.id}`)?.value;
         if((h !== undefined && h !== '') || (a !== undefined && a !== '')) {
-          state.pendingSaves[m.id] = { home: h || '', away: a || '' };
+          state.pendingSaves[m.id] = { home: h !== undefined && h !== '' ? h : '', away: a !== undefined && a !== '' ? a : '' };
         }
       });
     }
@@ -896,7 +896,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       
       html += `<div class="admin-section"><h3>Editar Resultados (${state.matches.length} partidos)</h3><p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Los cambios se guardan automáticamente</p>`;
       state.matches.forEach(m => {
-        html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:#0A0D16;border-radius:6px;"><span style="flex:1;font-size:12px;">${m.home} vs ${m.away}</span><input type="number" id="res_h_${m.id}" value="${m.homescore||''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"><span>:</span><input type="number" id="res_a_${m.id}" value="${m.awayscore||''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"></div>`;
+        html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:#0A0D16;border-radius:6px;"><span style="flex:1;font-size:12px;">${m.home} vs ${m.away}</span><input type="number" id="res_h_${m.id}" value="${m.homescore !== undefined && m.homescore !== null ? m.homescore : ''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"><span>:</span><input type="number" id="res_a_${m.id}" value="${m.awayscore !== undefined && m.awayscore !== null ? m.awayscore : ''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"></div>`;
       });
       html += `</div>`;
       
@@ -1200,14 +1200,14 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       for(const m of open) {
         const h = document.getElementById(`h_${m.id}`)?.value;
         const a = document.getElementById(`a_${m.id}`)?.value;
-        if(h && a) {
+        if(h !== undefined && h !== '' && a !== undefined && a !== '') {
           const exist = await sb.from('polla_trabajo_predictions').select('*').eq('userId', state.me).eq('matchId', m.id);
           const key = state.me + '::' + m.id;
           
           if(exist.data?.length) {
-            await sb.from('polla_trabajo_predictions').update({ homescore: +h, awayscore: +a }).eq('id', exist.data[0].id);
+            await sb.from('polla_trabajo_predictions').update({ homescore: h !== undefined && h !== '' ? +h : null, awayscore: a !== undefined && a !== '' ? +a : null }).eq('id', exist.data[0].id);
           } else {
-            await sb.from('polla_trabajo_predictions').insert([{ id: Date.now() + saved + '', userId: state.me, matchId: m.id, homescore: +h, awayscore: +a }]);
+            await sb.from('polla_trabajo_predictions').insert([{ id: Date.now() + saved + '', userId: state.me, matchId: m.id, homescore: h !== undefined && h !== '' ? +h : null, awayscore: a !== undefined && a !== '' ? +a : null }]);
           }
           
           state.preds[key] = { home: +h, away: +a };
@@ -1327,8 +1327,8 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
     };
 
     window.validateNewMatch = function() {
-      const home = document.getElementById('new_home')?.value || '';
-      const away = document.getElementById('new_away')?.value || '';
+      const home = (document.getElementById('new_home')?.value ?? '').trim();
+      const away = (document.getElementById('new_away')?.value ?? '').trim();
       
       if(home && away && home === away) {
         alert('❌ No puedes usar el mismo país en ambos equipos');
@@ -1342,7 +1342,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       const datetime = document.getElementById('new_datetime').value;
       const phase = document.getElementById('new_phase').value;
       
-      if(!home || !away || !datetime) return alert('Llena todos los campos');
+      if((home === undefined || home === '') || (away === undefined || away === '') || !datetime) return alert('Llena todos los campos');
       if(home === away) return alert('❌ No puedes usar el mismo país en ambos equipos');
       
       const newId = 'm' + (state.matches.length + 1);
