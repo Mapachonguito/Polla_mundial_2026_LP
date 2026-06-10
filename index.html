@@ -237,6 +237,14 @@
         console.error('❌ Error en autosavePodiumUser:', e);
       }
     };
+    window.autosaveMonto = async function() {
+      const monto = +document.getElementById('monto_entrada')?.value || 15000;
+      state.config.monto_entrada = monto;
+      console.log(`💰 Guardando monto: ${monto}`);
+      const result = await sb.from('config').update({ monto_entrada: monto }).eq('id', '1');
+      console.log('Monto guardado:', result);
+    };
+    
     window.autosaveScoring = async function() {
       state.config.scoring = {
         exact: +document.getElementById('sc_exact')?.value || 5,
@@ -358,7 +366,7 @@
       try {
         let cfg = { data: [] }, u = { data: [] }, m = { data: [] }, p = { data: [] };
         
-        try { cfg = await sb.from('polla_trabajo_config').select('id, poolname, scoring, podiumresult').limit(1); } catch(e) { console.error('Error config:', e); }
+        try { cfg = await sb.from('polla_trabajo_config').select('id, poolname, scoring, podiumresult, monto_entrada, moneda, prizes').limit(1); } catch(e) { console.error('Error config:', e); }
         try { u = await sb.from('polla_trabajo_users').select('id, displayname, pw, role, paid'); } catch(e) { console.error('Error users:', e); }
         try { m = await sb.from('polla_trabajo_matches').select('*').order('datetime', { ascending: true }); } catch(e) { console.error('Error matches:', e); }
         try { p = await sb.from('polla_trabajo_predictions').select('*'); } catch(e) { console.error('Error predictions:', e); }
@@ -845,6 +853,8 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       html += `<span style="font-weight:700;font-size:13px;">${state.config?.podioAbierto !== false ? '🟢 ABIERTO' : '🔴 CERRADO'}</span>`;
       html += `<button onclick="togglePodioAbierto()" style="width:auto;padding:8px 16px;${state.config?.podioAbierto !== false ? 'background:var(--coral);' : 'background:var(--lime);'}">${state.config?.podioAbierto !== false ? 'Cerrar' : 'Abrir'}</button>`;
       html += `</div></div>`;
+      
+      html += `<div class="admin-section"><h3>💰 Monto a Apostar</h3><p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Define cuánto debe aportar cada participante</p><div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px;">Monto por Participante (${state.config.moneda || 'CLP'})</label><input type="number" id="monto_entrada" value="${state.config.monto_entrada || 15000}" min="0" step="1000" onchange="autosaveMonto()" style="width:100%;"></div></div>`;
       
       html += `<div class="admin-section"><h3>⚙️ Configuración de Puntos</h3><p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Define cuántos puntos vale cada acierto</p>`;
       html += `<div style="background:#0A0D16;padding:12px;border-radius:6px;margin-bottom:12px;">`;
