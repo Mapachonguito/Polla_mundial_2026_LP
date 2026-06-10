@@ -771,10 +771,13 @@
         });
         
         let bonoMundial = 0;
-        if(state.podium[uid]) {
-          if(state.podium[uid].first === podiumReal.first) bonoMundial += scoring.champion;
-          if(state.podium[uid].second === podiumReal.second) bonoMundial += scoring.second;
-          if(state.podium[uid].third === podiumReal.third) bonoMundial += scoring.third;
+        // Solo contar puntos si TODOS los 3 resultados reales están ingresados
+        const podiumCompleto = podiumReal.first && podiumReal.second && podiumReal.third;
+        if(state.podium[uid] && podiumCompleto) {
+          // Solo sumar puntos por los lugares donde el usuario apostó
+          if(state.podium[uid].first && state.podium[uid].first === podiumReal.first) bonoMundial += scoring.champion;
+          if(state.podium[uid].second && state.podium[uid].second === podiumReal.second) bonoMundial += scoring.second;
+          if(state.podium[uid].third && state.podium[uid].third === podiumReal.third) bonoMundial += scoring.third;
         }
         
         return { uid, name: u.displayname, pts, bonoMundial, total: pts + bonoMundial };
