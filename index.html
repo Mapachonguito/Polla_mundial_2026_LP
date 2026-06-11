@@ -1162,30 +1162,27 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
         alert('Error: ' + e.message);
       }
     };
+    // Scroll position memory - guardar posición en cada pestaña
+    const scrollPositions = {};
+    
     window.setTab = function(t) { 
+      // Guardar scroll actual ANTES de cambiar pestaña
+      scrollPositions[state.tab] = window.scrollY || 0;
+      
       state.tab = t; 
       state.selectedDay = null; 
       localStorage.setItem('polla_tab', t);
       render(); 
+      
+      // Restaurar scroll DESPUÉS de renderizar
+      setTimeout(() => {
+        const savedScroll = scrollPositions[t] || 0;
+        window.scrollTo(0, savedScroll);
+      }, 0);
     };
     
     // Swipe detection
-    let touchStartX = 0;
-    let touchEndX = 0;
-    document.addEventListener('touchstart', e => {
-      touchStartX = e.changedTouches[0].screenX;
-    }, false);
-    document.addEventListener('touchend', e => {
-      touchEndX = e.changedTouches[0].screenX;
-      const tabs = ['partidos', 'resumen', 'tabla'];
-      if(state.me && state.users[state.me]?.role === 'admin') tabs.push('admin');
-      const currentIdx = tabs.indexOf(state.tab);
-      const diff = touchStartX - touchEndX;
-      if(Math.abs(diff) > 50) { // al menos 50px de desliz
-        if(diff > 0 && currentIdx < tabs.length - 1) setTab(tabs[currentIdx + 1]); // izquierda
-        if(diff < 0 && currentIdx > 0) setTab(tabs[currentIdx - 1]); // derecha
-      }
-    }, false);
+    // Swipe desactivado - cambiar pestañas solo con botones
     window.filterDay = function(d) { state.selectedDay = d === '' ? null : d; render(); };
     
     window.deleteMatch = async function(mid) {
