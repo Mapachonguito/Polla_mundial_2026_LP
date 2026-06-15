@@ -606,7 +606,8 @@
       // Obtener apuestas y puntos para cada participante
       const participantes = Object.keys(state.users).map(uid => {
         const u = state.users[uid];
-        let ptsPartidos = 0, ptsPodia = 0;
+        let cantExactos = 0, cantResultados = 0, ptsPodia = 0;
+        let ptsPartidos = 0;
         
         // Puntos podio
         if(state.podium[uid]) {
@@ -629,17 +630,25 @@
           const p = state.preds[uid + '::' + m.id];
           if(!p) return;
           const mh = +m.homescore, ma = +m.awayscore, ph = +p.home, pa = +p.away;
-          if(ph === mh && pa === ma) ptsPartidos += scoring.exact;
-          else if((ph > pa && mh > ma) || (ph < pa && mh < ma) || (ph === pa && mh === ma)) ptsPartidos += scoring.outcome;
+          if(ph === mh && pa === ma) {
+            cantExactos++;
+            ptsPartidos += scoring.exact;
+          }
+          else if((ph > pa && mh > ma) || (ph < pa && mh < ma) || (ph === pa && mh === ma)) {
+            cantResultados++;
+            ptsPartidos += scoring.outcome;
+          }
         });
         
-        return { uid, name: u.displayname, ptsPartidos, ptsPodia, total: ptsPartidos + ptsPodia };
+        return { uid, name: u.displayname, cantExactos, cantResultados, ptsPartidos, ptsPodia, total: ptsPartidos + ptsPodia };
       }).sort((a,b) => {
         // Usuario logueado primero
         if(a.uid === state.me) return -1;
         if(b.uid === state.me) return 1;
-        // Luego por puntos totales (descendente)
-        return b.total - a.total;
+        // Ordenar por: 1) Total puntos, 2) Cantidad de exactos, 3) Cantidad de resultados
+        if(b.total !== a.total) return b.total - a.total;  // Puntos totales primero
+        if(b.cantExactos !== a.cantExactos) return b.cantExactos - a.cantExactos;  // Cantidad de exactos
+        return b.cantResultados - a.cantResultados;  // Cantidad de resultados
       });
       
       // Tabla con todos los participantes
@@ -763,6 +772,8 @@
         
         // Calcular puntos CORRECTAMENTE
         let pts = 0;
+        let cantExactos = 0;
+        let cantResultados = 0;
         Object.keys(state.preds).forEach(k => {
           if(!k.startsWith(uid + '::')) return;
           const mid = k.split('::')[1];
@@ -774,8 +785,14 @@
           const ph = +state.preds[k].home;
           const pa = +state.preds[k].away;
           
-          if(ph === mh && pa === ma) pts += scoring.exact; // Marcador perfecto
-          else if((ph > pa && mh > ma) || (ph < pa && mh < ma) || (ph === pa && mh === ma)) pts += scoring.outcome; // Solo resultado
+          if(ph === mh && pa === ma) {
+            cantExactos++;
+            pts += scoring.exact; // Marcador perfecto
+          }
+          else if((ph > pa && mh > ma) || (ph < pa && mh < ma) || (ph === pa && mh === ma)) {
+            cantResultados++;
+            pts += scoring.outcome; // Solo resultado
+          }
         });
         
         let bonoMundial = 0;
