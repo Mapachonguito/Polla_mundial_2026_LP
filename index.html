@@ -124,7 +124,7 @@
       ["Argelia","Austria","J","2026-06-27T22:00"],["Jordania","Argentina","J","2026-06-27T22:00"],
     ];
 
-    let state = { me: null, tab: 'partidos', config: null, users: {}, matches: [], preds: {}, podium: {}, selectedDay: null, pendingSaves: {}, resumenFechaInicio: '2026-06-11', resumenFechaFin: null };
+    let state = { me: null, tab: 'partidos', config: null, users: {}, matches: [], preds: {}, podium: {}, selectedDay: localStorage.getItem('polla_selectedDay') || null, adminSelectedDay: localStorage.getItem('polla_adminSelectedDay') || null, pendingSaves: {}, resumenFechaInicio: localStorage.getItem('polla_fechaInicio') || '2026-06-11', resumenFechaFin: localStorage.getItem('polla_fechaFin') || null };
     const appEl = document.getElementById('app');
     const navEl = document.getElementById('bottomNav');
     const saveAllEl = document.getElementById('saveAllBtn');
@@ -601,7 +601,7 @@
       const fechaFin = state.resumenFechaFin || null;
       
       let html = `<h2>Resumen de Apuestas</h2>`;
-      html += `<div style="display:flex;gap:8px;margin-bottom:12px;"><div style="flex:1;"><label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px;">Desde:</label><input type="date" id="fechaInicio" value="${fechaInicio||''}" onchange="setResumenFechaInicio(this.value)"></div><div style="flex:1;"><label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px;">Hasta:</label><input type="date" id="fechaFin" value="${fechaFin||''}" onchange="setResumenFechaFin(this.value)"></div><button onclick="limpiarFiltroResumen()" style="flex:0.5;padding:8px;">Limpiar</button></div>`;
+      html += `<div style="display:flex;gap:8px;margin-bottom:12px;"><div style="flex:1;"><label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px;">Desde:</label><input type="date" id="fechaInicio" value="${fechaInicio||''}" onblur="setResumenFechaInicio(this.value)" autocomplete="off"></div><div style="flex:1;"><label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px;">Hasta:</label><input type="date" id="fechaFin" value="${fechaFin||''}" onblur="setResumenFechaFin(this.value)" autocomplete="off"></div><button onclick="limpiarFiltroResumen()" style="flex:0.5;padding:8px;">Limpiar</button></div>`;
       
       // Obtener apuestas y puntos para cada participante
       const participantes = Object.keys(state.users).map(uid => {
@@ -713,6 +713,7 @@
         return;
       }
       state.resumenFechaInicio = fecha === '' ? null : fecha;
+      localStorage.setItem('polla_fechaInicio', state.resumenFechaInicio || '');
       render();
     };
     
@@ -724,12 +725,15 @@
         return;
       }
       state.resumenFechaFin = fecha === '' ? null : fecha;
+      localStorage.setItem('polla_fechaFin', state.resumenFechaFin || '');
       render();
     };
     
     window.limpiarFiltroResumen = function() {
       state.resumenFechaInicio = null;
       state.resumenFechaFin = null;
+      localStorage.removeItem('polla_fechaInicio');
+      localStorage.removeItem('polla_fechaFin');
       render();
     };
 
@@ -921,8 +925,22 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       });
       html += `</div></div>`;
       
-      html += `<div class="admin-section"><h3>Editar Resultados (${state.matches.length} partidos)</h3><p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Los cambios se guardan automáticamente</p>`;
-      state.matches.forEach(m => {
+      html += `<div class="admin-section"><h3>Editar Resultados</h3><p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Los cambios se guardan automáticamente</p>`;
+      
+      // Filtro por día en Admin
+      const adminDays = [...new Set(state.matches.map(m => getDay(m.datetime)))].sort();
+      html += `<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px;">Filtrar por día</label><select id="adminDaySelect" onchange="filterAdminDay(this.value)" style="width:100%;"><option value="" ${!state.adminSelectedDay?'selected':''}>📅 Ver todos (${state.matches.length} partidos)</option>`;
+      adminDays.forEach(d => {
+        const count = state.matches.filter(m => getDay(m.datetime) === d).length;
+        html += `<option value="${d}" ${state.adminSelectedDay===d?'selected':''}>${d} (${count} partidos)</option>`;
+      });
+      html += `</select></div>`;
+      
+      // Filtrar partidos según el día seleccionado
+      const matchesToShow = state.adminSelectedDay ? state.matches.filter(m => getDay(m.datetime) === state.adminSelectedDay) : state.matches;
+      html += `<p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Mostrando ${matchesToShow.length} partidos</p>`;
+      
+      matchesToShow.forEach(m => {
         html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:#0A0D16;border-radius:6px;"><span style="flex:1;font-size:12px;">${m.home} vs ${m.away}</span><input type="number" id="res_h_${m.id}" value="${m.homescore !== undefined && m.homescore !== null ? m.homescore : ''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"><span>:</span><input type="number" id="res_a_${m.id}" value="${m.awayscore !== undefined && m.awayscore !== null ? m.awayscore : ''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"></div>`;
       });
       html += `</div>`;
@@ -1181,13 +1199,31 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
     };
     // Scroll position memory - guardar posición en cada pestaña
     const scrollPositions = {};
+    let scrollTimeout;
+    
+    // Cargar posiciones de scroll guardadas
+    const savedScrollPositions = localStorage.getItem('polla_scrollPositions');
+    if(savedScrollPositions) {
+      try {
+        Object.assign(scrollPositions, JSON.parse(savedScrollPositions));
+      } catch(e) {}
+    }
+    
+    // Guardar scroll mientras el usuario scrollea (con debounce para eficiencia)
+    window.addEventListener('scroll', function() {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        scrollPositions[state.tab] = window.scrollY || 0;
+        localStorage.setItem('polla_scrollPositions', JSON.stringify(scrollPositions));
+      }, 300);
+    });
     
     window.setTab = function(t) { 
-      // Guardar scroll actual ANTES de cambiar pestaña
+      // Guardar scroll ANTES de cambiar pestaña
       scrollPositions[state.tab] = window.scrollY || 0;
+      localStorage.setItem('polla_scrollPositions', JSON.stringify(scrollPositions));
       
       state.tab = t; 
-      state.selectedDay = null; 
       localStorage.setItem('polla_tab', t);
       render(); 
       
@@ -1198,9 +1234,26 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       }, 0);
     };
     
+    // Al cargar la página, restaurar el scroll después de que renderice
+    setTimeout(() => {
+      if(scrollPositions[state.tab] !== undefined && scrollPositions[state.tab] > 0) {
+        window.scrollTo(0, scrollPositions[state.tab]);
+      }
+    }, 100);
+    
     // Swipe detection
     // Swipe desactivado - cambiar pestañas solo con botones
-    window.filterDay = function(d) { state.selectedDay = d === '' ? null : d; render(); };
+    window.filterDay = function(d) { 
+      state.selectedDay = d === '' ? null : d; 
+      localStorage.setItem('polla_selectedDay', state.selectedDay || '');
+      render(); 
+    };
+    
+    window.filterAdminDay = function(d) {
+      state.adminSelectedDay = d === '' ? null : d;
+      localStorage.setItem('polla_adminSelectedDay', state.adminSelectedDay || '');
+      render();
+    };
     
     window.deleteMatch = async function(mid) {
       try {
