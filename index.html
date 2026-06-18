@@ -1241,8 +1241,44 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       }
     }, 300);
     
-    // Swipe detection
-    // Swipe desactivado - cambiar pestañas solo con botones
+    // 🤖 AGENTE AUTOMÁTICO: Actualizar resultados cada 15 segundos
+    const updateScoresURL = 'https://rklimxsgnfdsnmxpfbgs.supabase.co/functions/v1/update-scores';
+    let updateInterval;
+    
+    window.startAutoUpdates = function() {
+      if (updateInterval) return; // Ya está corriendo
+      console.log('🤖 Agente iniciado: Actualizando cada 15 segundos');
+      updateInterval = setInterval(async () => {
+        try {
+          await fetch(updateScoresURL);
+        } catch(e) {
+          console.log('📡 Sync con servidor...');
+        }
+      }, 15000); // 15 segundos
+    };
+    
+    window.stopAutoUpdates = function() {
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+        console.log('🛑 Agente detenido');
+      }
+    };
+    
+    // Iniciar automáticamente cuando hay partidos en vivo
+    setInterval(() => {
+      const ahora = new Date();
+      const hayPartidosEnVivo = state.matches.some(m => {
+        const inicio = new Date(m.datetime);
+        return inicio <= ahora && !m.finished;
+      });
+      
+      if (hayPartidosEnVivo && !updateInterval) {
+        window.startAutoUpdates();
+      } else if (!hayPartidosEnVivo && updateInterval) {
+        window.stopAutoUpdates();
+      }
+    }, 60000); // Verificar cada minuto
     window.filterDay = function(d) { 
       state.selectedDay = d === '' ? null : d; 
       localStorage.setItem('polla_selectedDay', state.selectedDay || '');
