@@ -591,7 +591,8 @@ function calcularRankingGrupos(){const g={};for(let i=0;i<state.matches.length;i
       const allMatches = state.matches;
       const teams = [...new Set(state.matches.flatMap(m => [m.home, m.away]))].sort();
       const pod = state.podium[state.me] || {};
-      const days = [...new Set(allMatches.map(m => getDay(m.datetime)))];
+      const daysMap = new Map(allMatches.map(m => [m.datetime.split('T')[0], getDay(m.datetime)]));
+      const days = [...daysMap.keys()].sort().map(date => daysMap.get(date));
       const podioAbierto = state.config?.podioAbierto !== false;
       
       let html = '<div style="display:flex;gap:8px;margin-bottom:16px;align-items:flex-end;background:#0A0D16;padding:12px;border-radius:8px;border-left:4px solid var(--lime);opacity:' + (podioAbierto ? '1' : '0.5') + ';"><div style="flex:1"><label style="font-size:10px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">🥇 CAMPEÓN</label><select id="first" onchange="autosavePodiumUser()" style="width:100%;font-size:11px" ' + (podioAbierto ? '' : 'disabled') + '><option value="">--</option>' + teams.map(t => '<option value="' + t + '"' + (pod.first===t ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div><div style="flex:1"><label style="font-size:10px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">🥈 SEGUNDO</label><select id="second" onchange="autosavePodiumUser()" style="width:100%;font-size:11px" ' + (podioAbierto ? '' : 'disabled') + '><option value="">--</option>' + teams.map(t => '<option value="' + t + '"' + (pod.second===t ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div><div style="flex:1"><label style="font-size:10px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">🥉 TERCERO</label><select id="third" onchange="autosavePodiumUser()" style="width:100%;font-size:11px" ' + (podioAbierto ? '' : 'disabled') + '><option value="">--</option>' + teams.map(t => '<option value="' + t + '"' + (pod.third===t ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div></div>';
@@ -970,7 +971,8 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       html += `<div class="admin-section"><h3>Editar Resultados</h3><p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Los cambios se guardan automáticamente</p>`;
       
       // Filtro por día en Admin
-      const adminDays = [...new Set(state.matches.map(m => getDay(m.datetime)))].sort();
+      const adminDaysMap = new Map(state.matches.map(m => [m.datetime.split('T')[0], getDay(m.datetime)]));
+      const adminDays = [...adminDaysMap.keys()].sort().map(date => adminDaysMap.get(date));
       html += `<div style="margin-bottom:12px;"><label style="font-size:12px;color:var(--muted);font-weight:700;display:block;margin-bottom:6px;">Filtrar por día</label><select id="adminDaySelect" onchange="filterAdminDay(this.value)" style="width:100%;"><option value="" ${!state.adminSelectedDay?'selected':''}>📅 Ver todos (${state.matches.length} partidos)</option>`;
       adminDays.forEach(d => {
         const count = state.matches.filter(m => getDay(m.datetime) === d).length;
