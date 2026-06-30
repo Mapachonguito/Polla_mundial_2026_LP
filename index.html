@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-    <link rel="icon" type="image/png" href="favicon_trabajo.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Polla Mundial 2026</title>
@@ -466,11 +465,52 @@
     function fmtMoney(n, c) { try { return new Intl.NumberFormat("es-CL", { style: "currency", currency: c||"CLP", maximumFractionDigits: 0 }).format(Math.round(n||0)); } catch { return "$"+Math.round(n||0); } }
 
     function renderNav() {
-      const tabs = [{ id: 'partidos', label: 'Partidos' }, { id: 'resumen', label: 'Resumen' }, { id: 'tabla', label: 'Tabla' }, { id: 'estadisticas', label: 'Estadísticas' }, { id: 'reglas', label: 'Reglas' }];
+      const tabs = [{ id: 'partidos', label: 'Partidos' }, { id: 'resumen', label: 'Resumen' }, { id: 'tabla', label: 'Tabla' }, { id: 'estadisticas', label: 'Estadísticas' }, { id: 'fase2', label: 'Fase 2' }, { id: 'reglas', label: 'Reglas' }];
       if(state.me && state.users[state.me]?.role === 'admin') tabs.push({ id: 'admin', label: 'Admin' });
       navEl.innerHTML = tabs.map(t => `<button class="nav-btn ${state.tab===t.id?'active':''}" onclick="setTab('${t.id}')">${t.label}</button>`).join('');
     }
 
+function calcularRankingGrupos(){const g={};for(let i=0;i<state.matches.length;i++){const m=state.matches[i];if(!g[m.group_name])g[m.group_name]={}}for(let i=0;i<state.matches.length;i++){const m=state.matches[i],gr=m.group_name;if(!g[gr][m.home])g[gr][m.home]={equipo:m.home,pts:0,gf:0,gc:0};if(!g[gr][m.away])g[gr][m.away]={equipo:m.away,pts:0,gf:0,gc:0};if(m.finished&&m.homescore!==null){const hs=parseInt(m.homescore)||0,as=parseInt(m.awayscore)||0;g[gr][m.home].gf+=hs;g[gr][m.home].gc+=as;g[gr][m.away].gf+=as;g[gr][m.away].gc+=hs;if(hs>as)g[gr][m.home].pts+=3;else if(as>hs)g[gr][m.away].pts+=3;else{g[gr][m.home].pts+=1;g[gr][m.away].pts+=1}}}const c={};for(const[gn,eq]of Object.entries(g)){const a=Object.values(eq).sort((a,b)=>b.pts-a.pts||(b.gf-b.gc)-(a.gf-a.gc)||b.gf-a.gf);c[gn]=a}return c}
+    function generarLlaveFase2(){const r=calcularRankingGrupos(),m=[{p1:"1",g1:"E",p2:"3",g2:"ABCDF",n:1},{p1:"1",g1:"I",p2:"3",g2:"CDFGH",n:2},{p1:"1",g1:"A",p2:"2",g2:"B",n:3},{p1:"1",g1:"B",p2:"2",g2:"A",n:4},{p1:"1",g1:"C",p2:"2",g2:"D",n:5},{p1:"1",g1:"D",p2:"2",g2:"C",n:6},{p1:"1",g1:"F",p2:"3",g2:"AEHIJ",n:7},{p1:"1",g1:"J",p2:"3",g2:"BEFHIJ",n:8},{p1:"1",g1:"G",p2:"2",g2:"H",n:9},{p1:"1",g1:"H",p2:"2",g2:"G",n:10},{p1:"1",g1:"K",p2:"2",g2:"L",n:11},{p1:"1",g1:"L",p2:"2",g2:"K",n:12},{p1:"1",g1:"C",p2:"3",g2:"EFGHIJ",n:13},{p1:"1",g1:"D",p2:"3",g2:"ABCDEFHIJ",n:14},{p1:"1",g1:"A",p2:"3",g2:"CDEFHIJK",n:15},{p1:"1",g1:"B",p2:"3",g2:"ADEFGHIJK",n:16}];const l=[];for(const x of m){let e1="?",e2="?";if(r[x.g1]&&r[x.g1][0])e1=r[x.g1][0].equipo;if(x.p2==="2"&&r[x.g2]&&r[x.g2][1])e2=r[x.g2][1].equipo;else if(x.p2==="3")e2="3 "+x.g2;l.push({e1,e2,n:x.n})}return l}
+    function renderFase2(el){
+      const llave = generarLlaveFase2();
+      let h = '<div style="overflow-x:auto;padding:20px;background:var(--bg)"><div style="display:flex;gap:40px;min-width:max-content">';
+      
+      // 16avos
+      h += '<div><div style="text-align:center;color:var(--lime);font-weight:bold;font-size:13px;margin-bottom:20px">16avos</div>';
+      for(let i=0;i<llave.length;i++){
+        let x=llave[i];
+        h += '<div style="border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;width:140px;margin-bottom:10px"><div style="padding:8px 10px;background:#f5f5f5;color:#000;font-weight:bold;font-size:10px;border-bottom:1px solid #ddd">'+x.e1+'</div><div style="padding:8px 10px;background:#f5f5f5;color:#000;font-weight:bold;font-size:10px">'+x.e2+'</div></div>';
+      }
+      h += '</div>';
+      
+      // Octavos
+      h += '<div><div style="text-align:center;color:var(--lime);font-weight:bold;font-size:13px;margin-bottom:20px">Octavos</div>';
+      for(let i=0;i<8;i++){
+        h += '<div style="border:1px dashed var(--line);border-radius:6px;width:140px;padding:20px 10px;text-align:center;color:var(--muted);font-size:12px;min-height:50px;margin-bottom:10px;display:flex;align-items:center;justify-content:center">—</div>';
+      }
+      h += '</div>';
+      
+      // Cuartos
+      h += '<div><div style="text-align:center;color:var(--lime);font-weight:bold;font-size:13px;margin-bottom:20px">Cuartos</div>';
+      for(let i=0;i<4;i++){
+        h += '<div style="border:1px dashed var(--line);border-radius:6px;width:140px;padding:20px 10px;text-align:center;color:var(--muted);font-size:12px;min-height:50px;margin-bottom:10px;display:flex;align-items:center;justify-content:center">—</div>';
+      }
+      h += '</div>';
+      
+      // Semis
+      h += '<div><div style="text-align:center;color:var(--lime);font-weight:bold;font-size:13px;margin-bottom:20px">Semis</div>';
+      for(let i=0;i<2;i++){
+        h += '<div style="border:1px dashed var(--line);border-radius:6px;width:140px;padding:20px 10px;text-align:center;color:var(--muted);font-size:12px;min-height:50px;margin-bottom:10px;display:flex;align-items:center;justify-content:center">—</div>';
+      }
+      h += '</div>';
+      
+      // Final
+      h += '<div><div style="text-align:center;color:var(--lime);font-weight:bold;font-size:13px;margin-bottom:20px">Final</div>';
+      h += '<div style="border:1px dashed var(--line);border-radius:6px;width:140px;padding:20px 10px;text-align:center;color:var(--muted);font-size:12px;min-height:50px;display:flex;align-items:center;justify-content:center">—</div>';
+      h += '</div></div></div>';
+      el.innerHTML = h;
+    }
     function render() {
       if(!state.config) {
         appEl.innerHTML = `
@@ -542,6 +582,7 @@
         else if(state.tab === 'tabla') renderTabla(content);
         else if(state.tab === 'reglas') renderReglas(content);
         else if(state.tab === 'estadisticas') renderEstadisticas(content);
+        else if(state.tab === 'fase2') renderFase2(content);
         else if(state.tab === 'admin') renderAdmin(content);
       }
     }
@@ -1459,7 +1500,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       if((home === undefined || home === '') || (away === undefined || away === '') || !datetime) return alert('Llena todos los campos');
       if(home === away) return alert('❌ No puedes usar el mismo país en ambos equipos');
       
-      const newId = 'm' + (state.matches.length + 1);
+      const newId = 'm' + Date.now() + Math.random().toString(36).substr(2, 9);
       await sb.from('polla_trabajo_matches').insert([{ 
         id: newId, 
         home, 
