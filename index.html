@@ -131,6 +131,28 @@
     const saveAllEl = document.getElementById('saveAllBtn');
 
 
+    window.handleMatchInput = function(matchId, isHome, isResult = false) {
+      const prefix = isResult ? 'res_' : '';
+      const homeInput = document.getElementById(`${prefix}h_${matchId}`);
+      const awayInput = document.getElementById(`${prefix}a_${matchId}`);
+      
+      if(!homeInput || !awayInput) return;
+      
+      // Si es el input local y tiene valor, avanza al visitante
+      if(isHome && homeInput.value) {
+        awayInput.focus();
+      }
+      
+      // Si ambos tienen valor, guarda automáticamente
+      if(homeInput.value && awayInput.value) {
+        if(isResult) {
+          window.autosaveResult(matchId);
+        } else {
+          window.autosavePred(matchId);
+        }
+      }
+    };
+
     window.autosavePred = async function(mid) {
       let h = document.getElementById(`h_${mid}`)?.value;
       let a = document.getElementById(`a_${mid}`)?.value;
@@ -570,7 +592,7 @@
       filtered.forEach(m => {
         const p = state.preds[state.me + '::' + m.id] || state.pendingSaves[m.id] || {};
         const locked = isLocked(m);
-        html += `<div class="match ${locked?'':''}"><div class="match-header">${m.home} vs ${m.away} <span style="color:var(--muted);">Grupo ${m.group_name}</span></div><div class="match-date">📅 ${fmtDate(m.datetime)}</div><div class="match-inputs" ${locked?'style="opacity:0.5;"':''}><input type="number" id="h_${m.id}" value="${p.home !== undefined && p.home !== null ? p.home : ''}" min="0" max="99" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}><span>:</span><input type="number" id="a_${m.id}" value="${p.away !== undefined && p.away !== null ? p.away : ''}" min="0" max="99" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}></div></div>`;
+        html += `<div class="match ${locked?'':''}"><div class="match-header">${m.home} vs ${m.away} <span style="color:var(--muted);">Grupo ${m.group_name}</span></div><div class="match-date">📅 ${fmtDate(m.datetime)}</div><div class="match-inputs" ${locked?'style="opacity:0.5;"':''}><input type="number" id="h_${m.id}" value="${p.home !== undefined && p.home !== null ? p.home : ''}" min="0" max="99" oninput="handleMatchInput('${m.id}', true)" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}><span>:</span><input type="number" id="a_${m.id}" value="${p.away !== undefined && p.away !== null ? p.away : ''}" min="0" max="99" oninput="handleMatchInput('${m.id}', false)" onchange="autosavePred('${m.id}')" ${locked?'disabled':''}></div></div>`;
       });
       
       el.innerHTML = html;
@@ -944,7 +966,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       html += `<p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Mostrando ${matchesToShow.length} partidos</p>`;
       
       matchesToShow.forEach(m => {
-        html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:#0A0D16;border-radius:6px;"><span style="flex:1;font-size:12px;">${m.home} vs ${m.away}</span><input type="number" id="res_h_${m.id}" value="${m.homescore !== undefined && m.homescore !== null ? m.homescore : ''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"><span>:</span><input type="number" id="res_a_${m.id}" value="${m.awayscore !== undefined && m.awayscore !== null ? m.awayscore : ''}" placeholder="0" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"></div>`;
+        html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:#0A0D16;border-radius:6px;"><span style="flex:1;font-size:12px;">${m.home} vs ${m.away}</span><input type="number" id="res_h_${m.id}" value="${m.homescore !== undefined && m.homescore !== null ? m.homescore : ''}" placeholder="0" oninput="handleMatchInput('${m.id}', true, true)" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"><span>:</span><input type="number" id="res_a_${m.id}" value="${m.awayscore !== undefined && m.awayscore !== null ? m.awayscore : ''}" placeholder="0" oninput="handleMatchInput('${m.id}', false, true)" onchange="autosaveResult('${m.id}')" style="width:50px;margin:0;"></div>`;
       });
       html += `</div>`;
       
