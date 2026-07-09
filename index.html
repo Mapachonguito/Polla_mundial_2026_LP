@@ -374,11 +374,19 @@
       state.config.podium_result = { first: first || '', second: second || '', third: third || '' };
       state.config.podioAbierto = state.config?.podioAbierto !== false ? false : true;
       
-      // Guardar ambos cambios
-      await sb.from('polla_trabajo_config').update({ 
+      // Guardar en Supabase
+      const result = await sb.from('polla_trabajo_config').update({ 
         podioAbierto: state.config.podioAbierto,
         podium_result: state.config.podium_result
       }).eq('id', '1');
+      
+      if(result.error) {
+        console.error('Error actualizando podioAbierto:', result.error);
+      } else {
+        // Asegura que el estado local está sincronizado
+        state.config.podioAbierto = state.config.podioAbierto;
+      }
+      
       render();
     };
 
@@ -795,7 +803,7 @@
       
       html += `<h2 style="margin-top:20px;margin-bottom:12px;">Tabla de Posiciones</h2>`;
       
-      const rows = Object.keys(state.users).map(uid => {
+      const rows = Object.keys(state.users).filter(uid => state.users[uid].paid).map(uid => {
         const u = state.users[uid];
         
         // Calcular puntos CORRECTAMENTE
@@ -1371,7 +1379,8 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       const u = state.users[uid];
       u.paid = !u.paid;
       await sb.from('polla_trabajo_users').update({ paid: u.paid }).eq('id', uid);
-      render();
+      state.users[uid].paid = u.paid; // Asegura que el estado local se actualiza
+      render(); // Renderiza todo nuevamente
     };
 
     window.showPassword = function(uid) {
