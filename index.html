@@ -372,19 +372,27 @@
       const third = document.getElementById('third')?.value;
       
       state.config.podium_result = { first: first || '', second: second || '', third: third || '' };
-      state.config.podioAbierto = state.config?.podioAbierto !== false ? false : true;
+      // Toggle el estado: si es true, pasar a false (cerrar); si es false o undefined, pasar a true (abrir)
+      const newValue = !(state.config?.podioAbierto === true); // Convierte explícitamente a boolean
+      state.config.podioAbierto = newValue;
       
-      // Guardar en Supabase
+      // Guardar en localStorage como backup
+      localStorage.setItem('polla_podioAbierto', newValue);
+      
+      console.log('🔔 Toggle pódio:', newValue ? 'ABIERTO' : 'CERRADO');
+      
+      // Guardar en Supabase - especificar tipo boolean explícitamente
       const result = await sb.from('polla_trabajo_config').update({ 
-        podioAbierto: state.config.podioAbierto,
+        podioAbierto: newValue,
         podium_result: state.config.podium_result
       }).eq('id', '1');
       
       if(result.error) {
-        console.error('Error actualizando podioAbierto:', result.error);
+        console.error('❌ Error actualizando podioAbierto:', result.error);
+        alert('Error al actualizar: ' + result.error.message);
       } else {
-        // Asegura que el estado local está sincronizado
-        state.config.podioAbierto = state.config.podioAbierto;
+        console.log('✅ Pódio actualizado en Supabase:', newValue);
+        state.config.podioAbierto = newValue;
       }
       
       render();
@@ -406,6 +414,17 @@
         console.log('📊 Datos cargados - config:', cfg.data?.length, 'users:', u.data?.length, 'matches:', m.data?.length, 'predictions:', p.data?.length, 'podium:', pd.data?.length);
         
         state.config = cfg.data?.length ? cfg.data[0] : null;
+        
+        // Asegurar que podioAbierto tiene un valor por defecto
+        if(state.config && typeof state.config.podioAbierto === 'undefined') {
+          state.config.podioAbierto = true; // Por defecto abierto
+        }
+        
+        // Restaurar desde localStorage si existe (persistencia)
+        const savedPodio = localStorage.getItem('polla_podioAbierto');
+        if(savedPodio !== null) {
+          state.config.podioAbierto = savedPodio === 'true'; // Convertir string a boolean
+        }
         (u.data || []).forEach(x => state.users[x.id] = x);
         (m.data || []).forEach(x => state.matches.push(x));
         (p.data || []).forEach(x => state.preds[x.userid + '::' + x.matchid] = { home: x.homescore, away: x.awayscore });
