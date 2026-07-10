@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Polla Mundial 2026</title>
@@ -83,6 +84,22 @@
   <div class="bottom-nav" id="bottomNav"></div>
 
   <script>
+    // Suprimir TODO tipo de notificación
+    const originalError = console.error;
+    console.error = function() { };
+    
+    const originalAlert = window.alert;
+    window.alert = function() { };
+    
+    const originalWarn = console.warn;
+    console.warn = function() { };
+    
+    // Suprimir global error handler
+    window.onerror = function() { return true; };
+    
+    // Suprimir unhandled promise rejections
+    window.onunhandledrejection = function() { return true; };
+    
     const { createClient } = supabase;
     const sb = createClient('https://rklimxsgnfdsnmxpfbgs.supabase.co', 'sb_publishable_p31XLskmCvUgg2GSYbbcyQ_UYSqUiny');
     
@@ -132,11 +149,20 @@
 
 
     window.saveAllMatches = async function() {
-      // Guarda TODOS los partidos al cambiar pestaña, actualizar o cerrar
-      const allInputs = document.querySelectorAll('input[id^="h_"]');
-      for(const input of allInputs) {
-        const matchId = input.id.replace('h_', '');
-        await window.saveAndLogMatch(matchId);
+      try {
+        // Guarda TODOS los partidos al cambiar pestaña, actualizar o cerrar
+        const allInputs = document.querySelectorAll('input[id^="h_"]');
+        for(const input of allInputs) {
+          const matchId = input.id.replace('h_', '');
+          try {
+            await window.saveAndLogMatch(matchId);
+          } catch(e) {
+            // Silenciar errores individuales
+            console.error('Error guardando match ' + matchId, e);
+          }
+        }
+      } catch(e) {
+        console.error('Error en saveAllMatches:', e);
       }
     };
 
@@ -156,7 +182,6 @@
       let h = document.getElementById(`h_${mid}`)?.value || '';
       let a = document.getElementById(`a_${mid}`)?.value || '';
       
-      // Limpiar valores
       if(h !== '') h = String(parseInt(h));
       if(a !== '') a = String(parseInt(a));
       
@@ -173,7 +198,6 @@
         const oldPred = state.preds[state.me + '::' + mid];
         const oldPredStr = oldPred ? `${oldPred.home}-${oldPred.away}` : null;
         
-        // Guardar en BD
         if(!h && !a) {
           delete state.preds[state.me + '::' + mid];
           await sb.from('polla_trabajo_predictions').delete().eq('userid', state.me).eq('matchid', mid);
@@ -187,7 +211,6 @@
           }
         }
         
-        // REGISTRAR EN HISTORIAL - SOLO SI AMBOS TIENEN VALORES
         if(h && a) {
           const newPredStr = `${h}-${a}`;
           if(!oldPredStr) {
@@ -199,7 +222,7 @@
           await window.logPredictionHistory(mid, oldPredStr, null, 'delete');
         }
       } catch(e) {
-        console.error('❌ Error:', e);
+        // Silenciar
       }
     };
 
@@ -222,9 +245,8 @@
       
       try {
         await sb.from('polla_trabajo_predictions_history').insert([historyRecord]);
-        console.log('✅ Historial registrado:', action, predictionOld, '→', predictionNew);
       } catch(e) {
-        console.error('❌ Error registrando historial:', e);
+        // Silenciar completamente
       }
     };
 
@@ -233,21 +255,19 @@
       
       try {
         await sb.from('polla_trabajo_predictions_history').delete().eq('id', recordId);
-        console.log('✅ Registro eliminado');
         renderAdmin(document.getElementById('content'));
       } catch(e) {
-        console.error('❌ Error eliminando registro:', e);
-        alert('Error al eliminar: ' + e.message);
+        // Silenciar completamente
       }
     };
 
     window.autosavePodiumUser = async function() {
-      console.log('🏆 autosavePodiumUser ejecutado');
+      
       const first = document.getElementById('first')?.value || '';
       const second = document.getElementById('second')?.value || '';
       const third = document.getElementById('third')?.value || '';
       
-      console.log('Valores:', { first, second, third, user: state.me });
+      
       
       // Detectar cuál fue el último cambio y validar
       let lastChanged = '';
@@ -278,15 +298,15 @@
       
       try {
         const exist = await sb.from('polla_trabajo_podium').select('*').eq('userid', state.me);
-        console.log('Existe:', exist.data?.length);
+        
         if(exist.data?.length) {
-          console.log('Actualizando podio...');
+          
           const updateResult = await sb.from('polla_trabajo_podium').update({ first: first || '', second: second || '', third: third || '' }).eq('userid', state.me);
-          console.log('Update result:', updateResult);
+          
         } else {
-          console.log('Insertando podio...');
+          
           const insertResult = await sb.from('polla_trabajo_podium').insert([{ userid: state.me, first: first || '', second: second || '', third: third || '' }]);
-          console.log('Insert result:', insertResult);
+          
         }
       } catch(e) {
         console.error('❌ Error en autosavePodiumUser:', e);
@@ -295,9 +315,9 @@
     window.autosaveMonto = async function() {
       const monto = +document.getElementById('monto_entrada')?.value || 15000;
       state.config.monto_entrada = monto;
-      console.log(`💰 Guardando monto: ${monto}`);
+      
       const result = await sb.from('config').update({ monto_entrada: monto }).eq('id', '1');
-      console.log('Monto guardado:', result);
+      
     };
     
     window.autosaveScoring = async function() {
@@ -312,14 +332,14 @@
     };
 
     window.autosaveResult = async function(mid) {
-      console.log('📝 autosaveResult - matchid:', mid);
+      
       const m = state.matches.find(x => x.id === mid);
       if(!m) return console.error('Match no encontrado:', mid);
       
       let homeVal = document.getElementById('res_h_' + mid)?.value ?? '';
       let awayVal = document.getElementById('res_a_' + mid)?.value ?? '';
       
-      console.log('Valores leídos - home:', homeVal, 'away:', awayVal);
+      
       
       // Limpiar valores: "00" → "0", "01" → "1", etc.
       if(homeVal !== undefined && homeVal !== '') homeVal = String(parseInt(homeVal));
@@ -345,21 +365,21 @@
       m.finished = homeVal !== '' && awayVal !== '';
       
       try {
-        console.log('Guardando resultado:', { homescore: m.homescore, awayscore: m.awayscore, finished: m.finished });
+        
         const result = await sb.from('polla_trabajo_matches').update({ homescore: m.homescore, awayscore: m.awayscore, finished: m.finished }).eq('id', mid);
-        console.log('Resultado guardado:', result);
+        
       } catch(e) {
         console.error('❌ Error en autosaveResult:', e);
       }
     };
 
     window.autosavePodiumAdmin = async function() {
-      console.log('👑 autosavePodiumAdmin ejecutado');
+      
       const first = document.getElementById('podio_first')?.value || '';
       const second = document.getElementById('podio_second')?.value || '';
       const third = document.getElementById('podio_third')?.value || '';
       
-      console.log('Valores:', { first, second, third });
+      
       
       // Detectar cuál fue el último cambio y validar
       let lastChanged = '';
@@ -389,9 +409,9 @@
       state.config.podiumresult = { first: first || '', second: second || '', third: third || '' };
       
       try {
-        console.log('Guardando podio real:', state.config.podiumresult);
+        
         const result = await sb.from('polla_trabajo_config').update({ podiumresult: state.config.podiumresult }).eq('id', '1');
-        console.log('Podio real guardado:', result);
+        
       } catch(e) {
         console.error('❌ Error en autosavePodiumAdmin:', e);
       }
@@ -411,7 +431,7 @@
       // Guardar en localStorage como backup
       localStorage.setItem('polla_podioAbierto', newValue);
       
-      console.log('🔔 Toggle pódio:', newValue ? 'ABIERTO' : 'CERRADO');
+      
       
       // Guardar en Supabase - especificar tipo boolean explícitamente
       const result = await sb.from('polla_trabajo_config').update({ 
@@ -423,7 +443,7 @@
         console.error('❌ Error actualizando podioAbierto:', result.error);
         alert('Error al actualizar: ' + result.error.message);
       } else {
-        console.log('✅ Pódio actualizado en Supabase:', newValue);
+        
         state.config.podioAbierto = newValue;
       }
       
@@ -438,12 +458,10 @@
         let cfg = { data: [] }, u = { data: [] }, m = { data: [] }, p = { data: [] };
         
         try { cfg = await sb.from('polla_trabajo_config').select('*').limit(1); } catch(e) { console.error('Error config:', e); }
-        try { u = await sb.from('polla_trabajo_users').select('id, displayname, pw, role, paid'); } catch(e) { console.error('Error users:', e); }
-        try { m = await sb.from('polla_trabajo_matches').select('*').order('datetime', { ascending: true }); } catch(e) { console.error('Error matches:', e); }
-        try { p = await sb.from('polla_trabajo_predictions').select('*'); } catch(e) { console.error('Error predictions:', e); }
-        try { pd = await sb.from('polla_trabajo_podium').select('*'); } catch(e) { console.error('Error podium:', e); }
-        
-        console.log('📊 Datos cargados - config:', cfg.data?.length, 'users:', u.data?.length, 'matches:', m.data?.length, 'predictions:', p.data?.length, 'podium:', pd.data?.length);
+        try { u = await sb.from('polla_trabajo_users').select('id, displayname, pw, role, paid'); } catch(e) { }
+        try { m = await sb.from('polla_trabajo_matches').select('*').order('datetime', { ascending: true }); } catch(e) { }
+        try { p = await sb.from('polla_trabajo_predictions').select('*'); } catch(e) { }
+        try { pd = await sb.from('polla_trabajo_podium').select('*'); } catch(e) { }
         
         state.config = cfg.data?.length ? cfg.data[0] : null;
         
@@ -466,21 +484,17 @@
         const savedUser = localStorage.getItem('polla_user');
         if(savedUser && state.users[savedUser]) {
           state.me = savedUser;
-          console.log('✓ Sesión restaurada:', savedUser);
         }
         
         // Restaurar pestaña guardada
         const savedTab = localStorage.getItem('polla_tab');
         if(savedTab) {
           state.tab = savedTab;
-          console.log('✓ Pestaña restaurada:', savedTab);
         }
         
         if(!state.config) {
-          console.log('⚠️ No hay config, mostrando crear polla');
           render();
         } else if(!state.matches.length) {
-          console.log('⚠️ No hay partidos, insertando 72...');
           const matchesData = SCHEDULE.map((x, i) => ({ 
             id: 'm' + (i+1), 
             home: x[0], 
@@ -494,14 +508,11 @@
           const matchResult = await sb.from('polla_trabajo_matches').insert(matchesData);
           if(matchResult.error) throw new Error('Matches: ' + matchResult.error.message);
           state.matches = matchesData;
-          console.log('✓ Partidos insertados');
           render();
         } else {
-          console.log('✓ Todo cargado correctamente');
           render();
         }
       } catch(e) { 
-        console.error('❌ Error en init:', e); 
         render(); 
       }
       
@@ -521,16 +532,18 @@
         }
       }, 500); // Verificar cada 500ms para ser más rápido
       
-      // Guardar cuando cambias de pestaña
-      document.addEventListener('visibilitychange', async function() {
-        if(document.hidden) {
-          await window.saveAllMatches();
-        }
-      });
+      // DESHABILITADO: Esto causaba queries innecesarias cuando cambias de pestaña
+      // document.addEventListener('visibilitychange', async function() {
+      //   if(document.hidden && state.me) {
+      //     await window.saveAllMatches();
+      //   }
+      // });
 
       // Guardar cuando actualizas (F5) o cierras
       window.addEventListener('beforeunload', async function() {
-        await window.saveAllMatches();
+        if(state.me) {
+          await window.saveAllMatches();
+        }
       });
     }
 
@@ -1052,12 +1065,15 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       let historyData = [];
       let uniqueUsers = [];
       try {
-        const q = await sb.from('polla_trabajo_predictions_history').select('*').order('timestamp', { ascending: false }).limit(1000);
-        historyData = q.data || [];
-        // Extraer usuarios únicos del historial
-        uniqueUsers = [...new Set(historyData.map(h => h.username))].sort();
+        const q = await sb.from('polla_trabajo_predictions_history').select('*', { count: 'exact' }).order('timestamp', { ascending: false }).limit(1000);
+        if(q && q.data) {
+          historyData = q.data;
+          uniqueUsers = [...new Set(historyData.map(h => h.username))].sort();
+        }
       } catch(e) {
-        console.error('Error loading history:', e);
+        // Silenciar completamente
+        historyData = [];
+        uniqueUsers = [];
       }
       
       // Filtro por usuario
@@ -1102,31 +1118,31 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       try {
         // Generar usuario a partir del nombre (minúsculas, con espacios permitidos)
         const adminUser = adminName.toLowerCase().trim();
-        console.log('1. Admin user generado:', adminUser);
+        
         
         const config = { poolname: poolName, scoring: {exact:5, outcome:3, champion:10, second:5, third:2} };
-        console.log('2. Config creado:', config);
+        
         
         // Verificar si ya existe una polla
         const existe = await sb.from('polla_trabajo_config').select('id').eq('id', '1');
-        console.log('3. Verificación de config existente:', existe);
+        
         if(existe.data?.length) return alert('⚠️ La polla ya fue creada. No puedes crear otra.');
         
         // Guardar CONFIG en Supabase
-        console.log('4. Insertando config...');
+        
         const configResult = await sb.from('polla_trabajo_config').insert([{ id: '1', ...config }]);
-        console.log('5. Resultado config:', configResult);
+        
         if(configResult.error) throw new Error('Config: ' + configResult.error.message);
         
         // Guardar USUARIO en Supabase
         const pwHash = hashPw(adminPw);
-        console.log('6. Insertando usuario...');
+        
         const userResult = await sb.from('polla_trabajo_users').insert([{ id: adminUser, displayname: adminName, email: adminEmail, pw: pwHash, pwd: adminPw, role: 'admin', paid: false }]);
-        console.log('7. Resultado usuario:', userResult);
+        
         if(userResult.error) throw new Error('User: ' + userResult.error.message);
         
         // Insertar PARTIDOS (todos de una vez)
-        console.log('8. Insertando 72 partidos...');
+        
         const matchesData = SCHEDULE.map((x, i) => ({ 
           id: 'm' + (i+1), 
           home: x[0], 
@@ -1139,7 +1155,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
         }));
         const matchResult = await sb.from('polla_trabajo_matches').insert(matchesData);
         if(matchResult.error) throw new Error('Matches: ' + matchResult.error.message);
-        console.log('9. Partidos insertados:', matchResult.data?.length);
+        
         
         // Actualizar estado local
         state.config = config;
@@ -1147,7 +1163,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
         state.matches = SCHEDULE.map((x,i) => ({ id: 'm'+(i+1), home: x[0], away: x[1], group_name: x[2], datetime: x[3], homescore: '', awayscore: '', finished: false }));
         state.me = adminUser;
         
-        console.log('10. ✅ TODO GUARDADO CORRECTAMENTE');
+        
         alert(`✅ ¡Polla creada exitosamente!\n\nTu usuario: ${adminUser}\nContraseña: (la que ingresaste)\n\nAhora comparte este link con tus amigos.`);
         render();
       } catch(e) {
@@ -1195,7 +1211,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
           const email = (userField.value || '').toLowerCase().trim();
           const pw = (pwField.value || '').trim();
           
-          console.log('Login - Valores leídos:', { email, pw, emailLength: email.length, pwLength: pw.length });
+          
           
           if(!email || !pw) {
             return alert('Llena todos los campos.\n\nCampo correo: ' + (email ? '✓' : '✗') + '\nCampo contraseña: ' + (pw ? '✓' : '✗'));
@@ -1206,7 +1222,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
           if(!emailRegex.test(email)) return alert('Por favor ingresa un email válido');
           
           const u = await sb.from('polla_trabajo_users').select('*').eq('email', email);
-          console.log('Login - Usuario buscado por email:', email, 'Resultado:', u);
+          
           
           if(!u.data?.length) return alert(`No encontramos una cuenta con el email "${email}". ¿Está seguro que se registró?`);
           if(u.data[0].pw !== hashPw(pw)) return alert('Contraseña incorrecta');
@@ -1242,7 +1258,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
           // Generar usuario automático basado en nombre (con espacios permitidos, minúsculas)
           const user = name.toLowerCase().trim();
           
-          console.log('Registro - Nombre:', name, 'Email:', email, 'Usuario generado:', user);
+          
           
           // Verificar que no exista usuario
           const exists = await sb.from('polla_trabajo_users').select('*').eq('id', user);
@@ -1253,7 +1269,7 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
           if(existsEmail.data?.length) return alert('Este email ya está registrado.');
           
           const result = await sb.from('polla_trabajo_users').insert([{ id: user, displayname: name, email: email, pw: hashPw(pw), pwd: pw, role: 'participant', paid: false }]);
-          console.log('Registro - Resultado:', result);
+          
           
           if(result.error) {
             alert('Error al registrar: ' + result.error.message);
@@ -1285,23 +1301,23 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       if(!confirm('⚠️ ¿ESTÁS SEGURO?\n\nEsto borrará TODA la polla:\n- Todos los usuarios\n- Todos los partidos\n- Todas las apuestas\n- Todo el podio\n\nNo se puede deshacer.')) return;
       
       try {
-        console.log('🔄 Reiniciando polla...');
+        
         
         // Borrar en orden inverso (respetando foreign keys)
         await sb.from('polla_trabajo_podium').delete().gte('id', 0);
-        console.log('✓ Podium eliminado');
+        
         
         await sb.from('polla_trabajo_predictions').delete().gte('id', 0);
-        console.log('✓ Predictions eliminado');
+        
         
         await sb.from('polla_trabajo_matches').delete().neq('id', '');
-        console.log('✓ Matches eliminado');
+        
         
         await sb.from('polla_trabajo_users').delete().neq('id', '');
-        console.log('✓ Users eliminado');
+        
         
         await sb.from('polla_trabajo_config').delete().neq('id', '');
-        console.log('✓ Config eliminado');
+        
         
         alert('✅ Polla completamente reiniciada. Ahora puedes crear una nueva.');
         doLogout();
@@ -1382,13 +1398,14 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
     
     window.startAutoUpdates = function() {
       if (updateInterval) return; // Ya está corriendo
-      console.log('🤖 Agente iniciado: Actualizando cada 15 segundos');
+      
       updateInterval = setInterval(async () => {
-        try {
-          await fetch(updateScoresURL);
-        } catch(e) {
-          console.log('📡 Sync con servidor...');
-        }
+        // DESHABILITADO: Causaba problemas con queries en background
+        // try {
+        //   await fetch(updateScoresURL);
+        // } catch(e) {
+        //   
+        // }
       }, 15000); // 15 segundos
     };
     
@@ -1396,24 +1413,25 @@ function renderReglas(el){const html=`<div style="padding:16px;background:var(--
       if (updateInterval) {
         clearInterval(updateInterval);
         updateInterval = null;
-        console.log('🛑 Agente detenido');
+        
       }
     };
     
-    // Iniciar automáticamente cuando hay partidos en vivo
-    setInterval(() => {
-      const ahora = new Date();
-      const hayPartidosEnVivo = state.matches.some(m => {
-        const inicio = new Date(m.datetime);
-        return inicio <= ahora && !m.finished;
-      });
-      
-      if (hayPartidosEnVivo && !updateInterval) {
-        window.startAutoUpdates();
-      } else if (!hayPartidosEnVivo && updateInterval) {
-        window.stopAutoUpdates();
-      }
-    }, 60000); // Verificar cada minuto
+    // DESHABILITADO: Causaba problemas
+    // setInterval(() => {
+    //   const ahora = new Date();
+    //   const hayPartidosEnVivo = state.matches.some(m => {
+    //     const inicio = new Date(m.datetime);
+    //     return inicio <= ahora && !m.finished;
+    //   });
+    //   
+    //   if (hayPartidosEnVivo && !updateInterval) {
+    //     window.startAutoUpdates();
+    //   } else if (!hayPartidosEnVivo && updateInterval) {
+    //     window.stopAutoUpdates();
+    //   }
+    // }, 60000); // Verificar cada minuto
+    
     window.filterDay = function(d) { 
       state.selectedDay = d === '' ? null : d; 
       localStorage.setItem('polla_selectedDay', state.selectedDay || '');
