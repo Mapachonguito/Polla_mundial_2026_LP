@@ -131,36 +131,80 @@
     const saveAllEl = document.getElementById('saveAllBtn');
 
 
-    window.handleMatchInput = function(matchId, isHome, isResult = false) {
-      const prefix = isResult ? 'res_' : '';
-      const homeInput = document.getElementById(`${prefix}h_${matchId}`);
-      const awayInput = document.getElementById(`${prefix}a_${matchId}`);
+    window.saveAllMatches = async function() {
+      // Guarda TODOS los partidos al cambiar pestaña, actualizar o cerrar
+      const allInputs = document.querySelectorAll('input[id^="h_"]');
+      for(const input of allInputs) {
+        const matchId = input.id.replace('h_', '');
+        await window.saveAndLogMatch(matchId);
+      }
+    };
+
+    window.handleMatchInput = function(matchId, isHome) {
+      const homeInput = document.getElementById(`h_${matchId}`);
+      const awayInput = document.getElementById(`a_${matchId}`);
       
       if(!homeInput || !awayInput) return;
       
-      // Si es el input local y tiene valor, avanza al visitante
+      // Auto-avanza del local al visitante si escribes algo
       if(isHome && homeInput.value) {
         awayInput.focus();
       }
+    };
+
+    window.saveAndLogMatch = async function(mid) {
+      let h = document.getElementById(`h_${mid}`)?.value || '';
+      let a = document.getElementById(`a_${mid}`)?.value || '';
       
-      // Si ambos tienen valor, guarda automáticamente
-      if(homeInput.value && awayInput.value) {
-        if(isResult) {
-          window.autosaveResult(matchId);
-        } else {
-          window.autosavePred(matchId);
+      // Limpiar valores
+      if(h !== '') h = String(parseInt(h));
+      if(a !== '') a = String(parseInt(a));
+      
+      if(h !== '' && parseInt(h) < 0) { 
+        h = '';
+        document.getElementById(`h_${mid}`).value = '';
+      }
+      if(a !== '' && parseInt(a) < 0) { 
+        a = '';
+        document.getElementById(`a_${mid}`).value = '';
+      }
+      
+      try {
+        const oldPred = state.preds[state.me + '::' + mid];
+        const oldPredStr = oldPred ? `${oldPred.home}-${oldPred.away}` : null;
+        
+        // Guardar en BD
+        if(!h && !a) {
+          delete state.preds[state.me + '::' + mid];
+          await sb.from('polla_trabajo_predictions').delete().eq('userid', state.me).eq('matchid', mid);
+        } else if(h && a) {
+          state.preds[state.me + '::' + mid] = {home: +h, away: +a};
+          const exist = await sb.from('polla_trabajo_predictions').select('*').eq('userid', state.me).eq('matchid', mid);
+          if(exist.data?.length) {
+            await sb.from('polla_trabajo_predictions').update({homescore: +h, awayscore: +a}).eq('userid', state.me).eq('matchid', mid);
+          } else {
+            await sb.from('polla_trabajo_predictions').insert([{userid: String(state.me), matchid: String(mid), homescore: parseInt(h), awayscore: parseInt(a)}]);
+          }
         }
+        
+        // REGISTRAR EN HISTORIAL - SOLO SI AMBOS TIENEN VALORES
+        if(h && a) {
+          const newPredStr = `${h}-${a}`;
+          if(!oldPredStr) {
+            await window.logPredictionHistory(mid, null, newPredStr, 'create');
+          } else if(oldPredStr !== newPredStr) {
+            await window.logPredictionHistory(mid, oldPredStr, newPredStr, 'update');
+          }
+        } else if(!h && !a && oldPredStr) {
+          await window.logPredictionHistory(mid, oldPredStr, null, 'delete');
+        }
+      } catch(e) {
+        console.error('❌ Error:', e);
       }
     };
 
     window.logPredictionHistory = async function(matchId, predictionOld, predictionNew, action) {
       if(!state.me) return;
-      
-      // NO guardar si anterior === nueva (evita duplicados)
-      if(predictionOld === predictionNew) {
-        console.log('⏭️ Saltando: predicción sin cambios');
-        return;
-      }
       
       const match = state.matches.find(m => m.id === matchId);
       if(!match) return;
@@ -173,7 +217,7 @@
         away: match.away,
         prediction_old: predictionOld || null,
         prediction_new: predictionNew || null,
-        action: action // "create", "update", "delete"
+        action: action
       };
       
       try {
@@ -197,131 +241,6 @@
       }
     };
 
-    window.savePredictionComplete = async function(mid) {
-      let h = document.getElementById(`h_${mid}`)?.value;
-      let a = document.getElementById(`a_${mid}`)?.value;
-      
-      console.log(`🔍 savePredictionComplete: h=${h}, a=${a}`);
-      
-      // Limpiar valores
-      if(h !== undefined && h !== '') h = String(parseInt(h));
-      if(a !== undefined && a !== '') a = String(parseInt(a));
-      
-      if(h !== undefined && h !== '' && parseInt(h) < 0) { 
-        h = '';
-        document.getElementById(`h_${mid}`).value = '';
-      }
-      if(a !== undefined && a !== '' && parseInt(a) < 0) { 
-        a = '';
-        document.getElementById(`a_${mid}`).value = '';
-      }
-      
-      console.log(`📝 Después limpieza: h=${h}, a=${a}`);
-      
-      try {
-        // Obtener predicción anterior
-        const oldPred = state.preds[state.me + '::' + mid];
-        const oldPredStr = oldPred ? `${oldPred.home}-${oldPred.away}` : null;
-        
-        console.log(`🔄 oldPredStr=${oldPredStr}`);
-        
-        if(!h && !a) {
-          // BORRAR
-          console.log(`❌ Borrando predicción para ${mid}`);
-          
-          if(oldPredStr) {
-            await window.logPredictionHistory(mid, oldPredStr, null, 'delete');
-          }
-          
-          delete state.preds[state.me + '::' + mid];
-          await sb.from('polla_trabajo_predictions').delete().eq('userid', state.me).eq('matchid', mid);
-        } else if(h && a) {
-          // AMBOS CAMPOS COMPLETOS
-          const newPredStr = `${h}-${a}`;
-          console.log(`✅ Guardando: ${oldPredStr} → ${newPredStr}`);
-          
-          state.preds[state.me + '::' + mid] = {home: +h, away: +a};
-          const exist = await sb.from('polla_trabajo_predictions').select('*').eq('userid', state.me).eq('matchid', mid);
-          
-          if(exist.data?.length) {
-            // UPDATE
-            await sb.from('polla_trabajo_predictions').update({homescore: +h, awayscore: +a}).eq('userid', state.me).eq('matchid', mid);
-            
-            // Registrar en historial SOLO si cambió
-            if(oldPredStr !== newPredStr) {
-              console.log(`📊 Registrando UPDATE en historial`);
-              await window.logPredictionHistory(mid, oldPredStr, newPredStr, 'update');
-            }
-          } else {
-            // CREATE
-            const insertData = {
-              userid: String(state.me),
-              matchid: String(mid),
-              homescore: parseInt(h),
-              awayscore: parseInt(a)
-            };
-            await sb.from('polla_trabajo_predictions').insert([insertData]);
-            console.log(`📊 Registrando CREATE en historial`);
-            await window.logPredictionHistory(mid, null, newPredStr, 'create');
-          }
-        }
-      } catch(e) {
-        console.error('❌ Error en savePredictionComplete:', e);
-      }
-    };
-
-    window.autosavePred = async function(mid) {
-      let h = document.getElementById(`h_${mid}`)?.value;
-      let a = document.getElementById(`a_${mid}`)?.value;
-      
-      console.log(`💾 autosavePred - matchid: ${mid}, h: ${h}, a: ${a}, user: ${state.me}`);
-      
-      // Limpiar valores: "00" → "0", "01" → "1", etc.
-      if(h !== undefined && h !== '') h = String(parseInt(h));
-      if(a !== undefined && a !== '') a = String(parseInt(a));
-      
-      // Actualizar display para que se vea limpio
-      if(h !== undefined && h !== '') document.getElementById(`h_${mid}`).value = h;
-      if(a !== undefined && a !== '') document.getElementById(`a_${mid}`).value = a;
-      
-      // Si son negativos, dejar vacío
-      if(h && parseInt(h) < 0) { 
-        h = '';
-        document.getElementById(`h_${mid}`).value = '';
-      }
-      if(a && parseInt(a) < 0) { 
-        a = '';
-        document.getElementById(`a_${mid}`).value = '';
-      }
-      
-      try {
-        if(!h && !a) {
-          console.log(`❌ Borrando predicción para ${mid}`);
-          
-          delete state.preds[state.me + '::' + mid];
-          const delResult = await sb.from('polla_trabajo_predictions').delete().eq('userid', state.me).eq('matchid', mid);
-        } else if(h && a) {
-          console.log(`💾 Guardando en BD: ${h}-${a}`);
-          
-          state.preds[state.me + '::' + mid] = {home: +h, away: +a};
-          const exist = await sb.from('polla_trabajo_predictions').select('*').eq('userid', state.me).eq('matchid', mid);
-          
-          if(exist.data?.length) {
-            const updateResult = await sb.from('polla_trabajo_predictions').update({homescore: +h, awayscore: +a}).eq('userid', state.me).eq('matchid', mid);
-          } else {
-            const insertData = {
-              userid: String(state.me),
-              matchid: String(mid),
-              homescore: parseInt(h),
-              awayscore: parseInt(a)
-            };
-            const insertResult = await sb.from('polla_trabajo_predictions').insert([insertData]);
-          }
-        }
-      } catch(e) {
-        console.error('❌ Error en autosavePred:', e);
-      }
-    };
     window.autosavePodiumUser = async function() {
       console.log('🏆 autosavePodiumUser ejecutado');
       const first = document.getElementById('first')?.value || '';
@@ -601,6 +520,18 @@
           if(cambio) render(); // Solo re-renderizar si cambió el estado de bloqueo
         }
       }, 500); // Verificar cada 500ms para ser más rápido
+      
+      // Guardar cuando cambias de pestaña
+      document.addEventListener('visibilitychange', async function() {
+        if(document.hidden) {
+          await window.saveAllMatches();
+        }
+      });
+
+      // Guardar cuando actualizas (F5) o cierras
+      window.addEventListener('beforeunload', async function() {
+        await window.saveAllMatches();
+      });
     }
 
     function actualizarReloj() {
@@ -732,7 +663,7 @@
       filtered.forEach(m => {
         const p = state.preds[state.me + '::' + m.id] || state.pendingSaves[m.id] || {};
         const locked = isLocked(m);
-        html += `<div class="match ${locked?'':''}"><div class="match-header">${m.home} vs ${m.away} <span style="color:var(--muted);">Grupo ${m.group_name}</span></div><div class="match-date">📅 ${fmtDate(m.datetime)}</div><div class="match-inputs" ${locked?'style="opacity:0.5;"':''}><input type="number" id="h_${m.id}" value="${p.home !== undefined && p.home !== null ? p.home : ''}" min="0" max="99" oninput="handleMatchInput('${m.id}', true)" onblur="savePredictionComplete('${m.id}')" ${locked?'disabled':''}><span>:</span><input type="number" id="a_${m.id}" value="${p.away !== undefined && p.away !== null ? p.away : ''}" min="0" max="99" oninput="handleMatchInput('${m.id}', false)" onblur="savePredictionComplete('${m.id}')" ${locked?'disabled':''}></div></div>`;
+        html += `<div class="match ${locked?'':''}"><div class="match-header">${m.home} vs ${m.away} <span style="color:var(--muted);">Grupo ${m.group_name}</span></div><div class="match-date">📅 ${fmtDate(m.datetime)}</div><div class="match-inputs" ${locked?'style="opacity:0.5;"':''}><input type="number" id="h_${m.id}" value="${p.home !== undefined && p.home !== null ? p.home : ''}" min="0" max="99" oninput="handleMatchInput('${m.id}', true)" onblur="saveAndLogMatch('${m.id}')" ${locked?'disabled':''}><span>:</span><input type="number" id="a_${m.id}" value="${p.away !== undefined && p.away !== null ? p.away : ''}" min="0" max="99" oninput="handleMatchInput('${m.id}', false)" onblur="saveAndLogMatch('${m.id}')" ${locked?'disabled':''}></div></div>`;
       });
       
       el.innerHTML = html;
